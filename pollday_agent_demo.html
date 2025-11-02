@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollday Agent</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Pollday Agent">
+    <link rel="apple-touch-icon" href="https://placehold.co/180x180/007aff/ffffff?text=Poll&font=inter">
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#ffffff">
+
+    <!-- Inlined Manifest -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlBvbGxkYXkgQWdlbnQgQXBwIiwKICAic2hvcnRfbmFtZSI6ICJQb2xsZGF5IiwKICAic3RhcnRfdXJsIjogIi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjZmZmZmZmIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiaHR0cHM6Ly9wbGFjZWhvbGQuY28vMTkyeDE5Mi8wMDdhZmYvZmZmZmZmP3RleHQ9UG9sbCZmb250PWludGVyIiwKICAgICAgInNpemVzIjogIjE5MlgxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9LAogICAgewogICAgICAic3JjIjogImh0dHBzOi8vcGxhY2Vob2xkLmNvLzUxMng1MTIvMDA3YWZmL2ZmZmZmZj90ZXh0PVBvbGwmZm9udD1pbnRlciIsCiAgICAgICJzaXplcyI6ICI1MTJ4NTEyIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIgogICAgfQogIF0KfQo=">
+
+    <!-- Tailwind CSS CDN (for development/demo purposes) -->
+    <script>
+        // Suppress Tailwind CDN warning in console
+        console.warn = (function(oldWarn) {
+            return function(message) {
+                if (typeof message === 'string' && message.includes('cdn.tailwindcss.com')) {
+                    return;
+                }
+                oldWarn.apply(console, arguments);
+            };
+        })(console.warn);
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Use Inter font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Custom styles for animations and hidden states */
+        .hidden {
+            display: none;
+        }
+        
+        /* Style for completed tasks */
+        .task-completed {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border-color: #28a745;
+        }
+        .task-completed .task-title {
+            color: #155724;
+            text-decoration: line-through;
+        }
+        .task-completed .task-icon {
+            background: #28a745;
+        }
+        .task-completed .task-icon svg {
+            color: white;
+        }
+        
+        /* Style for disabled tasks */
+        .task-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .task-disabled button {
+            pointer-events: none;
+        }
+        
+        /* Modal backdrop */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            padding: 1rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal-backdrop.show {
+            display: flex;
+        }
+        
+        /* Modal content */
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 100%;
+            max-width: 28rem;
+            padding: 1.5rem;
+            transform: scale(0.95);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-backdrop.active {
+            opacity: 1;
+        }
+        
+        .modal-backdrop.active .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        /* Section styling */
+        .section-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        /* Task card improvements */
+        .task-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            transition: all 0.2s ease;
+            margin-bottom: 0.75rem;
+        }
+        
+        .task-card:hover:not(.task-disabled) {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        /* Grouped turnout section */
+        .turnout-group {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #38bdf8;
+            border-radius: 1rem;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .turnout-time-slot {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        
+        .turnout-time-slot:hover:not(.task-disabled) {
+            border-color: #0ea5e9;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .turnout-time-slot:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Badge styling */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-completed {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        /* Confirmation popup styling */
+        .confirmation-time {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            margin: 1rem 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        /* Image preview without scaling */
+        .image-preview-container {
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .image-preview-full {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <!-- Main container -->
+    <div class="max-w-md mx-auto bg-gray-50 min-h-screen shadow-2xl">
+
+        <!-- ===== LOGIN SCREEN ===== -->
+        <div id="login-screen" class="p-6 pt-12">
+            <!-- Demo Mode Banner -->
+            <div id="demo-banner" class="hidden mb-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 text-yellow-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div>
+                        <p class="font-semibold text-yellow-800">Demo Mode Active</p>
+                        <p class="text-sm text-yellow-700">Use: Mobile: <strong>1234567890</strong> | Password: <strong>demo123</strong></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mb-8">
+                <img src="https://placehold.co/100x100/007aff/ffffff?text=Poll&font=inter" alt="App Logo" class="mx-auto rounded-2xl mb-4 shadow-lg">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2" data-lang-key="appTitle">Pollday Agent App</h1>
+                <p class="text-gray-500" data-lang-key="loginSubtitle">Please log in to continue</p>
+            </div>
+            
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="mobile" class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="mobileLabel">Mobile Number</label>
+                    <input type="tel" id="mobile" class="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg" placeholder="10-digit mobile" required>
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="passwordLabel">Password</label>
+                    <input type="password" id="password" class="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg" placeholder="••••••••" required>
+                </div>
+                
+                <button type="submit" id="login-button" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-lg font-semibold py-3 px-4 rounded-lg shadow-lg transition duration-200 ease-in-out transform hover:scale-105 flex items-center justify-center">
+                    <span data-lang-key="loginButton">Log In</span>
+                </button>
+            </form>
+            <p id="login-error" class="text-red-500 text-center mt-4 font-medium"></p>
+        </div>
+
+        <!-- ===== MAIN APP CONTAINER ===== -->
+        <div id="app-container" class="hidden">
+            
+            <!-- App Header -->
+            <header class="bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg sticky top-0 z-10 p-4">
+                <div class="flex items-center justify-between">
+                    <div id="agent-info" class="text-sm">
+                        <h1 class="font-bold text-lg text-white" id="agent-name-display"></h1>
+                        <p class="text-blue-100">
+                            <span data-lang-key="ac">AC</span>: <span id="agent-ac-display"></span> / 
+                            <span data-lang-key="booth">Booth</span>: <span id="agent-booth-display"></span>
+                        </p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <!-- Language Toggle - More Prominent -->
+                        <button id="lang-toggle-btn" class="flex items-center text-sm font-semibold text-white bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full px-4 py-2 shadow-md hover:shadow-lg transition backdrop-blur-sm border border-white border-opacity-30">
+                            <span class="text-sm">🇬🇧</span> <span class="ml-1">English</span>
+                        </button>
+                        <button id="logout-button" class="text-sm text-white bg-red-500 hover:bg-red-600 rounded-full px-3 py-1 font-medium shadow-md transition" data-lang-key="logout">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main class="p-4 pb-24">
+                
+                <!-- Step 1: Initial Setup -->
+                <div class="section-card">
+                    <h2 class="section-title" data-lang-key="initialSetup">Initial Setup</h2>
+                    
+                    <!-- Task: Agent Arrival -->
+                    <div id="task-arrival" class="task-card">
+                        <button class="w-full flex items-center justify-between" data-task-id="arrival">
+                            <div class="flex items-center">
+                                <div class="task-icon flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                </div>
+                                <div>
+                                    <span class="task-title font-semibold text-gray-800 block" data-lang-key="taskArrival">Agent Arrival</span>
+                                    <span class="text-xs text-gray-500" data-lang-key="taskArrivalDesc">Confirm your arrival at the polling booth</span>
+                                </div>
+                            </div>
+                            <span class="task-status status-badge status-pending" data-lang-key="pending">Pending</span>
+                        </button>
+                    </div>
+
+                    <!-- Task: Mock Poll Start -->
+                    <div id="task-mockpoll_start" class="task-card task-disabled">
+                        <button class="w-full flex items-center justify-between" data-task-id="mockpoll_start">
+                            <div class="flex items-center">
+                                <div class="task-icon flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center mr-3">
+                                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <div>
+                                    <span class="task-title font-semibold text-gray-800 block" data-lang-key="taskMockPoll">Mock Poll Started</span>
+                                    <span class="text-xs text-gray-500" data-lang-key="taskMockPollDesc">Confirm mock poll has started</span>
+                                </div>
+                            </div>
+                            <span class="task-status status-badge status-pending" data-lang-key="pending">Pending</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Voter Turnout Tracking -->
+                <div class="section-card">
+                    <h2 class="section-title" data-lang-key="voterTurnout">Voter Turnout Tracking</h2>
+                    
+                    <div class="turnout-group">
+                        <div class="flex items-center mb-3">
+                            <svg class="w-5 h-5 text-sky-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <h3 class="font-semibold text-sky-900" data-lang-key="turnoutTitle">Report voter count at these times</h3>
+                        </div>
+                        
+                        <!-- 9:00 AM Slot -->
+                        <div id="task-turnout_09:00" class="turnout-time-slot task-disabled">
+                            <button class="w-full flex items-center justify-between" data-task-id="turnout_09:00" data-task-type="turnout">
+                                <div class="flex items-center">
+                                    <div class="task-icon flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center mr-3">
+                                        <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <span class="task-title font-semibold text-gray-800 block" data-lang-key="turnout09">9:00 AM Update</span>
+                                        <span class="text-xs text-gray-500" data-lang-key="turnout09Desc">Available after 9:00 AM</span>
+                                    </div>
+                                </div>
+                                <span class="task-status status-badge status-pending" data-lang-key="pending">Pending</span>
+                            </button>
+                        </div>
+
+                        <!-- 12:00 PM Slot -->
+                        <div id="task-turnout_12:00" class="turnout-time-slot task-disabled">
+                            <button class="w-full flex items-center justify-between" data-task-id="turnout_12:00" data-task-type="turnout">
+                                <div class="flex items-center">
+                                    <div class="task-icon flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center mr-3">
+                                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <span class="task-title font-semibold text-gray-800 block" data-lang-key="turnout12">12:00 PM Update</span>
+                                        <span class="text-xs text-gray-500" data-lang-key="turnout12Desc">Available after 12:00 PM</span>
+                                    </div>
+                                </div>
+                                <span class="task-status status-badge status-pending" data-lang-key="pending">Pending</span>
+                            </button>
+                        </div>
+
+                        <!-- 3:00 PM Slot -->
+                        <div id="task-turnout_15:00" class="turnout-time-slot task-disabled">
+                            <button class="w-full flex items-center justify-between" data-task-id="turnout_15:00" data-task-type="turnout">
+                                <div class="flex items-center">
+                                    <div class="task-icon flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <span class="task-title font-semibold text-gray-800 block" data-lang-key="turnout15">3:00 PM Update</span>
+                                        <span class="text-xs text-gray-500" data-lang-key="turnout15Desc">Available after 3:00 PM</span>
+                                    </div>
+                                </div>
+                                <span class="task-status status-badge status-pending" data-lang-key="pending">Pending</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Incident Reporting -->
+                <div class="section-card">
+                    <h2 class="section-title" data-lang-key="incidentReporting">Incident Reporting</h2>
+                    
+                    <div id="task-incidents" class="task-card">
+                        <button class="w-full flex items-center justify-between" data-task-id="incidents">
+                            <div class="flex items-center">
+                                <div class="task-icon flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                </div>
+                                <div>
+                                    <span class="task-title font-semibold text-gray-800 block" data-lang-key="taskIncidents">Report Incident</span>
+                                    <span class="text-xs text-gray-500" data-lang-key="taskIncidentsDesc">Report any issues or incidents</span>
+                                </div>
+                            </div>
+                            <span class="task-status text-sm text-gray-500" data-lang-key="optional">Optional</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Final Submission -->
+                <div class="section-card">
+                    <h2 class="section-title" data-lang-key="finalSubmission">Final Submission</h2>
+                    
+                    <div id="task-form17c" class="task-card task-disabled" style="border-color: #10b981; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);">
+                        <button class="w-full flex items-center justify-between" data-task-id="form17c">
+                            <div class="flex items-center">
+                                <div class="task-icon flex-shrink-0 w-10 h-10 rounded-full bg-green-600 flex items-center justify-center mr-3">
+                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                </div>
+                                <div>
+                                    <span class="task-title font-semibold text-gray-800 block" data-lang-key="taskFinalSubmission">Final Submission</span>
+                                    <span class="text-xs text-gray-600" data-lang-key="taskFinalSubmissionDesc">Submit final polling data</span>
+                                </div>
+                            </div>
+                            <span class="task-status status-badge status-pending" data-lang-key="pending">Pending</span>
+                        </button>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+
+        <!-- ===== MODALS ===== -->
+
+        <!-- Confirmation Modal for Agent Arrival -->
+        <div id="arrival-confirm-modal" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="text-center">
+                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4">
+                        <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2" data-lang-key="confirmArrival">Confirm Agent Arrival</h3>
+                    <div class="confirmation-time" id="arrival-time-display"></div>
+                    <p class="text-gray-600 mb-6" data-lang-key="confirmArrivalMsg">Have you reached the polling booth? If you pressed this by mistake, please cancel.</p>
+                    <div class="flex space-x-3">
+                        <button id="arrival-cancel-btn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-lg transition" data-lang-key="cancel">Cancel</button>
+                        <button id="arrival-confirm-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition" data-lang-key="confirm">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal for Mock Poll Start -->
+        <div id="mockpoll-confirm-modal" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="text-center">
+                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-purple-100 mb-4">
+                        <svg class="h-8 w-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2" data-lang-key="confirmMockPoll">Confirm Mock Poll Started</h3>
+                    <div class="confirmation-time" id="mockpoll-time-display"></div>
+                    <p class="text-gray-600 mb-6" data-lang-key="confirmMockPollMsg">Has the mock poll started? If you pressed this by mistake, please cancel.</p>
+                    <div class="flex space-x-3">
+                        <button id="mockpoll-cancel-btn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-lg transition" data-lang-key="cancel">Cancel</button>
+                        <button id="mockpoll-confirm-btn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition" data-lang-key="confirm">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Voter Turnout Modal -->
+        <div id="turnout-modal" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900" data-lang-key="turnoutModalTitle">Voter Turnout Entry</h3>
+                    <button class="modal-close-btn text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <form id="turnout-form">
+                    <div class="mb-4">
+                        <div class="confirmation-time" id="turnout-time-display"></div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="votersCountLabel">Number of voters so far</label>
+                        <input type="number" id="turnout-count" class="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-lg" required min="0">
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4" data-lang-key="turnoutConfirmMsg">Please confirm the voter count and submission time before submitting.</p>
+                    <div class="flex space-x-3">
+                        <button type="button" class="modal-close-btn flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-lg transition" data-lang-key="cancel">Cancel</button>
+                        <button type="submit" class="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-semibold py-3 px-4 rounded-lg transition" data-lang-key="submit">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Incident Modal -->
+        <div id="incident-modal" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900" data-lang-key="incidentModalTitle">Report Incident</h3>
+                    <button class="modal-close-btn text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <form id="incident-form">
+                    <div class="mb-4">
+                        <label for="incident-category" class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="categoryLabel">Category</label>
+                        <select id="incident-category" class="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" required>
+                            <option value="" data-lang-key="selectCategory">Select a category</option>
+                            <option value="evm_issue" data-lang-key="evmIssue">EVM Issue</option>
+                            <option value="violence" data-lang-key="violence">Violence</option>
+                            <option value="booth_capture" data-lang-key="boothCapture">Booth Capture</option>
+                            <option value="other" data-lang-key="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="incident-description" class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="descriptionLabel">Description</label>
+                        <textarea id="incident-description" rows="4" class="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" required></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="photoLabel">Photo (Optional)</label>
+                        <div class="flex space-x-2">
+                            <label for="incident-photo-gallery" class="flex-1 cursor-pointer">
+                                <div class="flex items-center justify-center px-4 py-3 border-2 border-gray-300 rounded-lg hover:border-red-500 transition bg-white">
+                                    <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span class="text-sm font-medium text-gray-700">Choose File</span>
+                                </div>
+                            </label>
+                            <input type="file" id="incident-photo-gallery" accept="image/*" class="hidden">
+                            
+                            <label for="incident-photo-camera" class="flex-1 cursor-pointer">
+                                <div class="flex items-center justify-center px-4 py-3 border-2 border-gray-300 rounded-lg hover:border-red-500 transition bg-white">
+                                    <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span class="text-sm font-medium text-gray-700">Take Photo</span>
+                                </div>
+                            </label>
+                            <input type="file" id="incident-photo-camera" accept="image/*" capture="environment" class="hidden">
+                        </div>
+                        <img id="incident-preview" class="hidden mt-3 rounded-lg border-2 border-gray-300 w-full">
+                    </div>
+                    <div class="flex space-x-3">
+                        <button type="button" class="modal-close-btn flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-lg transition" data-lang-key="cancel">Cancel</button>
+                        <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition" data-lang-key="submit">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Final Submission Modal -->
+        <div id="form17c-modal" class="modal-backdrop">
+            <div class="modal-content max-w-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900" data-lang-key="finalSubmissionTitle">Final Submission</h3>
+                    <button class="modal-close-btn text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <form id="form17c-form">
+                    <div class="space-y-4 mb-4">
+                        <div>
+                            <label for="male-votes" class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="maleVotesLabel">Male Votes</label>
+                            <input type="number" id="male-votes" class="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-lg" required min="0">
+                        </div>
+                        <div>
+                            <label for="female-votes" class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="femaleVotesLabel">Female Votes</label>
+                            <input type="number" id="female-votes" class="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-lg" required min="0">
+                        </div>
+                        <div>
+                            <label for="other-votes" class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="otherVotesLabel">Other Votes</label>
+                            <input type="number" id="other-votes" class="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-lg" required min="0">
+                        </div>
+                        <div class="bg-green-50 border-2 border-green-500 rounded-lg p-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="totalVotesLabel">Total Votes (Auto-calculated)</label>
+                            <div id="total-votes-display" class="text-3xl font-bold text-green-700">0</div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2" data-lang-key="uploadPhotoLabel">Upload Form Photo</label>
+                        <div class="flex space-x-2">
+                            <label for="form17c-photo-gallery" class="flex-1 cursor-pointer">
+                                <div class="flex items-center justify-center px-4 py-3 border-2 border-gray-300 rounded-lg hover:border-green-500 transition bg-white">
+                                    <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span class="text-sm font-medium text-gray-700">Choose File</span>
+                                </div>
+                            </label>
+                            <input type="file" id="form17c-photo-gallery" accept="image/*" class="hidden">
+                            
+                            <label for="form17c-photo-camera" class="flex-1 cursor-pointer">
+                                <div class="flex items-center justify-center px-4 py-3 border-2 border-gray-300 rounded-lg hover:border-green-500 transition bg-white">
+                                    <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span class="text-sm font-medium text-gray-700">Take Photo</span>
+                                </div>
+                            </label>
+                            <input type="file" id="form17c-photo-camera" accept="image/*" capture="environment" class="hidden">
+                        </div>
+                        <div id="form17c-preview-container" class="hidden image-preview-container">
+                            <img id="form17c-preview" class="image-preview-full">
+                        </div>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button type="button" class="modal-close-btn flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-lg transition" data-lang-key="cancel">Cancel</button>
+                        <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition" data-lang-key="submit">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+                <div class="spinner border-4 border-gray-200 rounded-full w-10 h-10"></div>
+                <span class="text-gray-700 font-medium" data-lang-key="loading">Loading...</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, persistentLocalCache, persistentMultipleTabManager, initializeFirestore } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
+
+        // Firebase configuration
+        // IMPORTANT: Replace these with your actual Firebase project credentials
+        // You can find these in Firebase Console > Project Settings > General
+        
+        // SET THIS TO true TO TEST THE APP WITHOUT FIREBASE (DEMO MODE)
+        const DEMO_MODE = true;
+        
+        const firebaseConfig = {
+            
+        };
+
+        /*
+        FIREBASE SECURITY RULES SETUP:
+        
+        To fix permission errors, add these rules in Firebase Console > Firestore Database > Rules:
+        
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            // Allow read access to agents collection for login
+            match /agents/{agentId} {
+              allow read: if true;
+              allow write: if false;
+            }
+            
+            // Allow authenticated users to read/write their own submissions
+            match /submissions/{agentMobile} {
+              allow read, write: if true;
+            }
+            
+            // Allow writing to turnout and incidents collections
+            match /turnout/{document=**} {
+              allow read, write: if true;
+            }
+            
+            match /incidents/{document=**} {
+              allow read, write: if true;
+            }
+          }
+        }
+        
+        Note: These rules allow public access for demo purposes.
+        In production, implement proper authentication and restrict access accordingly.
+        */
+
+        let app, db;
+        
+        if (!DEMO_MODE) {
+            app = initializeApp(firebaseConfig);
+            
+            // Initialize Firestore with persistent cache
+            try {
+                db = initializeFirestore(app, {
+                    localCache: persistentLocalCache({
+                        tabManager: persistentMultipleTabManager()
+                    })
+                });
+            } catch (error) {
+                console.log('Using memory cache due to persistence error:', error.message);
+                // Fallback to default (memory) cache if persistence fails
+                db = getFirestore(app);
+            }
+        } else {
+            console.log('🎭 DEMO MODE ENABLED - No Firebase connection');
+        }
+
+        // Global state
+        let currentAgent = null;
+        let currentTaskId = null;
+        let taskCompletionState = {};
+        let submissionData = {}; // Store all submission data for editing
+
+        // DOM Elements
+        const loginScreen = document.getElementById('login-screen');
+        const appContainer = document.getElementById('app-container');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const logoutButton = document.getElementById('logout-button');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        // Modals
+        const arrivalConfirmModal = document.getElementById('arrival-confirm-modal');
+        const mockpollConfirmModal = document.getElementById('mockpoll-confirm-modal');
+        const turnoutModal = document.getElementById('turnout-modal');
+        const incidentModal = document.getElementById('incident-modal');
+        const form17cModal = document.getElementById('form17c-modal');
+
+        // Forms
+        const turnoutForm = document.getElementById('turnout-form');
+        const incidentForm = document.getElementById('incident-form');
+        const form17cForm = document.getElementById('form17c-form');
+
+        // Helper functions
+        function showLoading() {
+            loadingOverlay.classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.add('hidden');
+        }
+
+        function showModal(modal) {
+            modal.classList.add('show');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+
+        function hideModal(modal) {
+            modal.classList.remove('active');
+            setTimeout(() => {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }, 300);
+        }
+
+        function getCurrentTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        }
+
+        function formatTimeSlot(timeStr) {
+            // Convert 09:00, 12:00, 15:00 to readable format
+            const timeMap = {
+                '09:00': '9:00 AM',
+                '12:00': '12:00 PM',
+                '15:00': '3:00 PM'
+            };
+            return timeMap[timeStr] || timeStr;
+        }
+
+        // Login handler
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            loginError.textContent = '';
+
+            const mobile = document.getElementById('mobile').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                if (DEMO_MODE) {
+                    // Demo mode - accept test credentials
+                    if (mobile === '1234567890' && password === 'demo123') {
+                        currentAgent = {
+                            mobile: mobile,
+                            name: 'Demo Agent',
+                            ac: 'AC-001',
+                            booth: 'Booth-123'
+                        };
+                        localStorage.setItem('currentAgent', JSON.stringify(currentAgent));
+                        await loadAgentData();
+                        loginScreen.classList.add('hidden');
+                        appContainer.classList.remove('hidden');
+                        hideLoading();
+                    } else {
+                        loginError.textContent = 'Demo Mode: Use mobile "1234567890" and password "demo123"';
+                        hideLoading();
+                    }
+                    return;
+                }
+
+                // Firebase mode
+                const agentDoc = await getDoc(doc(db, 'agents', mobile));
+                
+                if (!agentDoc.exists()) {
+                    loginError.textContent = 'Invalid mobile number or password';
+                    hideLoading();
+                    return;
+                }
+
+                const agentData = agentDoc.data();
+                if (agentData.password !== password) {
+                    loginError.textContent = 'Invalid mobile number or password';
+                    hideLoading();
+                    return;
+                }
+
+                currentAgent = { mobile, ...agentData };
+                localStorage.setItem('currentAgent', JSON.stringify(currentAgent));
+                
+                await loadAgentData();
+                loginScreen.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                hideLoading();
+            } catch (error) {
+                console.error('Login error:', error);
+                
+                // Provide more specific error messages
+                if (error.code === 'permission-denied') {
+                    loginError.textContent = 'Database access denied. Please check Firebase security rules.';
+                } else if (error.code === 'unavailable') {
+                    loginError.textContent = 'Network error. Please check your internet connection.';
+                } else if (error.message.includes('Missing or insufficient permissions')) {
+                    loginError.textContent = 'Database permission error. Please contact administrator.';
+                } else {
+                    loginError.textContent = 'Login failed: ' + error.message;
+                }
+                hideLoading();
+            }
+        });
+
+        // Logout handler
+        logoutButton.addEventListener('click', () => {
+            currentAgent = null;
+            localStorage.removeItem('currentAgent');
+            appContainer.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            loginForm.reset();
+        });
+
+        // Load agent data and update UI
+        async function loadAgentData() {
+            document.getElementById('agent-name-display').textContent = currentAgent.name;
+            document.getElementById('agent-ac-display').textContent = currentAgent.ac;
+            document.getElementById('agent-booth-display').textContent = currentAgent.booth;
+
+            if (DEMO_MODE) {
+                // In demo mode, load from localStorage
+                const savedState = localStorage.getItem('demoTaskState');
+                if (savedState) {
+                    taskCompletionState = JSON.parse(savedState);
+                    updateTaskUI();
+                    enableNextTask();
+                }
+                
+                const savedData = localStorage.getItem('demoSubmissionData');
+                if (savedData) {
+                    submissionData = JSON.parse(savedData);
+                }
+                return;
+            }
+
+            // Load task completion state from Firebase
+            try {
+                const submissionDoc = await getDoc(doc(db, 'submissions', currentAgent.mobile));
+                if (submissionDoc.exists()) {
+                    const data = submissionDoc.data();
+                    taskCompletionState = data.taskCompletionState || {};
+                    
+                    // Load submission data for editing
+                    submissionData = {
+                        arrival: data.arrival,
+                        mockpoll_start: data.mockpoll_start,
+                        'turnout_09:00': data['turnout_09:00'],
+                        'turnout_12:00': data['turnout_12:00'],
+                        'turnout_15:00': data['turnout_15:00'],
+                        form17c: data.form17c
+                    };
+                    
+                    updateTaskUI();
+                    enableNextTask();
+                }
+            } catch (error) {
+                console.error('Error loading agent data:', error);
+            }
+        }
+
+        // Update task UI based on completion state
+        function updateTaskUI() {
+            for (const [taskId, completed] of Object.entries(taskCompletionState)) {
+                if (completed) {
+                    markTaskComplete(taskId);
+                }
+            }
+        }
+
+        // Mark task as complete
+        function markTaskComplete(taskId) {
+            const taskCard = document.getElementById(`task-${taskId}`);
+            if (taskCard) {
+                taskCard.classList.add('task-completed');
+                taskCard.classList.remove('task-disabled');
+                
+                const statusBadge = taskCard.querySelector('.task-status');
+                if (statusBadge) {
+                    statusBadge.innerHTML = `
+                        <span class="status-badge status-completed">Completed</span>
+                        <button class="resubmit-btn ml-2 text-xs text-blue-600 hover:text-blue-800 underline" data-resubmit-task="${taskId}">
+                            Edit
+                        </button>
+                    `;
+                }
+            }
+        }
+        
+        // Add resubmit functionality
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('resubmit-btn')) {
+                const taskId = e.target.getAttribute('data-resubmit-task');
+                if (confirm('Do you want to re-submit this task? You can review and edit your previous submission.')) {
+                    // Remove completion state
+                    const taskCard = document.getElementById(`task-${taskId}`);
+                    if (taskCard) {
+                        taskCard.classList.remove('task-completed');
+                        const statusBadge = taskCard.querySelector('.task-status');
+                        if (statusBadge) {
+                            statusBadge.innerHTML = '<span class="status-badge status-pending">Pending</span>';
+                        }
+                    }
+                    
+                    // Update task completion state (but keep submission data for pre-filling)
+                    delete taskCompletionState[taskId];
+                    if (DEMO_MODE) {
+                        localStorage.setItem('demoTaskState', JSON.stringify(taskCompletionState));
+                    }
+                    
+                    // Trigger the task click to open the modal (it will pre-fill with existing data)
+                    const button = taskCard.querySelector('[data-task-id]');
+                    if (button) {
+                        button.click();
+                    }
+                }
+            }
+        });
+
+        // Enable next task in sequence
+        function enableNextTask() {
+            const taskOrder = ['arrival', 'mockpoll_start', 'turnout_09:00', 'turnout_12:00', 'turnout_15:00', 'form17c'];
+            
+            // Check current time for turnout slots
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentTimeInMinutes = currentHour * 60 + currentMinute;
+            
+            // Time thresholds in minutes (24-hour format)
+            const turnoutTimes = {
+                'turnout_09:00': 9 * 60,      // 9:00 AM = 540 minutes
+                'turnout_12:00': 12 * 60,     // 12:00 PM = 720 minutes
+                'turnout_15:00': 15 * 60      // 3:00 PM = 900 minutes
+            };
+            
+            // Special handling: once Mock Poll is completed, enable turnout slots based on time
+            if (taskCompletionState['mockpoll_start']) {
+                ['turnout_09:00', 'turnout_12:00', 'turnout_15:00'].forEach(turnoutId => {
+                    const taskCard = document.getElementById(`task-${turnoutId}`);
+                    if (taskCard && !taskCompletionState[turnoutId]) {
+                        // Enable if current time is past the scheduled time
+                        if (currentTimeInMinutes >= turnoutTimes[turnoutId]) {
+                            taskCard.classList.remove('task-disabled');
+                        } else {
+                            taskCard.classList.add('task-disabled');
+                        }
+                    }
+                });
+            }
+            
+            // Regular sequential enabling for non-turnout tasks
+            for (let i = 0; i < taskOrder.length; i++) {
+                const taskId = taskOrder[i];
+                
+                // Skip turnout tasks (handled above)
+                if (taskId.startsWith('turnout_')) {
+                    continue;
+                }
+                
+                if (!taskCompletionState[taskId]) {
+                    const taskCard = document.getElementById(`task-${taskId}`);
+                    if (taskCard) {
+                        taskCard.classList.remove('task-disabled');
+                    }
+                    break; // Only enable the next incomplete task
+                }
+            }
+            
+            // Enable final submission only after all turnouts are complete
+            if (taskCompletionState['turnout_09:00'] && 
+                taskCompletionState['turnout_12:00'] && 
+                taskCompletionState['turnout_15:00'] &&
+                !taskCompletionState['form17c']) {
+                const form17cCard = document.getElementById('task-form17c');
+                if (form17cCard) {
+                    form17cCard.classList.remove('task-disabled');
+                }
+            }
+        }
+
+        // Task click handlers
+        document.querySelectorAll('[data-task-id]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                // Find the parent task container (either task-card or turnout-time-slot)
+                const taskCard = e.target.closest('.task-card') || e.target.closest('.turnout-time-slot');
+                
+                if (!taskCard) {
+                    console.error('Task card not found');
+                    return;
+                }
+                
+                const taskId = button.getAttribute('data-task-id');
+                const taskType = button.getAttribute('data-task-type');
+                
+                // Check if task is disabled and show appropriate message
+                if (taskCard.classList.contains('task-disabled')) {
+                    if (taskType === 'turnout') {
+                        const timeSlot = taskId.split('_')[1];
+                        const displayTime = formatTimeSlot(timeSlot);
+                        alert(`This turnout entry will be available after ${displayTime}. Please wait until the scheduled time.`);
+                    }
+                    return;
+                }
+
+                currentTaskId = taskId;
+
+                if (taskId === 'arrival') {
+                    document.getElementById('arrival-time-display').textContent = getCurrentTime();
+                    showModal(arrivalConfirmModal);
+                } else if (taskId === 'mockpoll_start') {
+                    document.getElementById('mockpoll-time-display').textContent = getCurrentTime();
+                    showModal(mockpollConfirmModal);
+                } else if (taskType === 'turnout') {
+                    const timeSlot = taskId.split('_')[1];
+                    document.getElementById('turnout-time-display').textContent = 'Till ' + formatTimeSlot(timeSlot);
+                    
+                    // Pre-fill turnout count if editing
+                    if (submissionData[taskId]) {
+                        document.getElementById('turnout-count').value = submissionData[taskId].count || '';
+                    } else {
+                        document.getElementById('turnout-count').value = '';
+                    }
+                    
+                    showModal(turnoutModal);
+                } else if (taskId === 'incidents') {
+                    showModal(incidentModal);
+                } else if (taskId === 'form17c') {
+                    // Pre-fill final submission data if editing
+                    if (submissionData[taskId]) {
+                        const data = submissionData[taskId];
+                        document.getElementById('male-votes').value = data.maleVotes || '';
+                        document.getElementById('female-votes').value = data.femaleVotes || '';
+                        document.getElementById('other-votes').value = data.otherVotes || '';
+                        calculateTotal();
+                        
+                        // Show existing photo if available
+                        if (data.photoBase64) {
+                            const preview = document.getElementById('form17c-preview');
+                            preview.src = data.photoBase64;
+                            preview.classList.remove('hidden');
+                            document.getElementById('form17c-preview-container').classList.remove('hidden');
+                        }
+                    } else {
+                        document.getElementById('male-votes').value = '';
+                        document.getElementById('female-votes').value = '';
+                        document.getElementById('other-votes').value = '';
+                        calculateTotal();
+                    }
+                    
+                    showModal(form17cModal);
+                }
+            });
+        });
+
+        // Arrival confirmation handlers
+        document.getElementById('arrival-cancel-btn').addEventListener('click', () => {
+            hideModal(arrivalConfirmModal);
+        });
+
+        document.getElementById('arrival-confirm-btn').addEventListener('click', async () => {
+            showLoading();
+            try {
+                await setSubmission('arrival', { timestamp: new Date().toISOString() });
+                taskCompletionState['arrival'] = true;
+                markTaskComplete('arrival');
+                enableNextTask();
+                hideModal(arrivalConfirmModal);
+            } catch (error) {
+                console.error('Error confirming arrival:', error);
+                alert('Failed to confirm arrival. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Mock poll confirmation handlers
+        document.getElementById('mockpoll-cancel-btn').addEventListener('click', () => {
+            hideModal(mockpollConfirmModal);
+        });
+
+        document.getElementById('mockpoll-confirm-btn').addEventListener('click', async () => {
+            showLoading();
+            try {
+                await setSubmission('mockpoll_start', { timestamp: new Date().toISOString() });
+                taskCompletionState['mockpoll_start'] = true;
+                markTaskComplete('mockpoll_start');
+                enableNextTask();
+                hideModal(mockpollConfirmModal);
+            } catch (error) {
+                console.error('Error confirming mock poll:', error);
+                alert('Failed to confirm mock poll. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Turnout form handler
+        turnoutForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+
+            const count = parseInt(document.getElementById('turnout-count').value, 10);
+            const timestamp = new Date().toISOString();
+            
+            const data = {
+                timeSlot: currentTaskId.split('_')[1],
+                count,
+                timestamp
+            };
+
+            try {
+                await addSubmission('turnout', data);
+                
+                // Save data for editing
+                submissionData[currentTaskId] = data;
+                if (DEMO_MODE) {
+                    localStorage.setItem('demoSubmissionData', JSON.stringify(submissionData));
+                }
+                
+                taskCompletionState[currentTaskId] = true;
+                markTaskComplete(currentTaskId);
+                enableNextTask();
+                hideModal(turnoutModal);
+                turnoutForm.reset();
+            } catch (error) {
+                console.error('Error submitting turnout:', error);
+                alert('Submission failed. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Incident form handler
+        incidentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+
+            const category = document.getElementById('incident-category').value;
+            const description = document.getElementById('incident-description').value;
+            const photoFileGallery = document.getElementById('incident-photo-gallery').files[0];
+            const photoFileCamera = document.getElementById('incident-photo-camera').files[0];
+            const photoFile = photoFileGallery || photoFileCamera;
+
+            let photoBase64 = null;
+            if (photoFile) {
+                try {
+                    photoBase64 = await compressAndEncodeBase64(photoFile);
+                } catch (err) {
+                    console.error('Error processing image:', err);
+                    alert('Error processing image: ' + err.message);
+                    hideLoading();
+                    return;
+                }
+            }
+
+            try {
+                await addSubmission('incidents', {
+                    category,
+                    description,
+                    photoBase64,
+                    timestamp: new Date().toISOString()
+                });
+                hideModal(incidentModal);
+                incidentForm.reset();
+                document.getElementById('incident-preview').classList.add('hidden');
+                alert('Incident reported successfully');
+            } catch (error) {
+                console.error('Error submitting incident:', error);
+                alert('Submission failed. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Final submission form handler - Auto calculate total
+        const maleVotesInput = document.getElementById('male-votes');
+        const femaleVotesInput = document.getElementById('female-votes');
+        const otherVotesInput = document.getElementById('other-votes');
+        const totalVotesDisplay = document.getElementById('total-votes-display');
+
+        function calculateTotal() {
+            const male = parseInt(maleVotesInput.value) || 0;
+            const female = parseInt(femaleVotesInput.value) || 0;
+            const other = parseInt(otherVotesInput.value) || 0;
+            const total = male + female + other;
+            totalVotesDisplay.textContent = total;
+        }
+
+        maleVotesInput.addEventListener('input', calculateTotal);
+        femaleVotesInput.addEventListener('input', calculateTotal);
+        otherVotesInput.addEventListener('input', calculateTotal);
+
+        form17cForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+
+            const data = {
+                maleVotes: parseInt(maleVotesInput.value, 10),
+                femaleVotes: parseInt(femaleVotesInput.value, 10),
+                otherVotes: parseInt(otherVotesInput.value, 10),
+                totalVotes: parseInt(totalVotesDisplay.textContent, 10),
+                timestamp: new Date().toISOString()
+            };
+
+            const photoFileGallery = document.getElementById('form17c-photo-gallery').files[0];
+            const photoFileCamera = document.getElementById('form17c-photo-camera').files[0];
+            const photoFile = photoFileGallery || photoFileCamera;
+            
+            // If no new photo selected but editing, use existing photo
+            if (!photoFile && submissionData['form17c'] && submissionData['form17c'].photoBase64) {
+                data.photoBase64 = submissionData['form17c'].photoBase64;
+            } else if (!photoFile) {
+                alert('Please upload a photo of the form');
+                hideLoading();
+                return;
+            } else {
+                try {
+                    const photoBase64 = await compressAndEncodeBase64(photoFile, 1200, 0.85);
+                    data.photoBase64 = photoBase64;
+                } catch (error) {
+                    console.error('Error processing image:', error);
+                    alert('Error processing image. Please try again.');
+                    hideLoading();
+                    return;
+                }
+            }
+
+            try {
+                await setSubmission('form17c', data);
+                
+                // Save data for editing
+                submissionData['form17c'] = data;
+                if (DEMO_MODE) {
+                    localStorage.setItem('demoSubmissionData', JSON.stringify(submissionData));
+                }
+                
+                taskCompletionState['form17c'] = true;
+                markTaskComplete('form17c');
+                hideModal(form17cModal);
+                form17cForm.reset();
+                document.getElementById('form17c-preview-container').classList.add('hidden');
+                totalVotesDisplay.textContent = '0';
+                alert('Final submission completed successfully!');
+            } catch (error) {
+                console.error('Error submitting final data:', error);
+                alert('Submission failed. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // Image preview handlers
+        document.getElementById('form17c-photo-gallery').addEventListener('change', (e) => {
+            previewImage(e.target.files[0], 'form17c-preview', 'form17c-preview-container');
+            // Clear the other input
+            document.getElementById('form17c-photo-camera').value = '';
+        });
+        
+        document.getElementById('form17c-photo-camera').addEventListener('change', (e) => {
+            previewImage(e.target.files[0], 'form17c-preview', 'form17c-preview-container');
+            // Clear the other input
+            document.getElementById('form17c-photo-gallery').value = '';
+        });
+        
+        document.getElementById('incident-photo-gallery').addEventListener('change', (e) => {
+            previewImage(e.target.files[0], 'incident-preview', null);
+            // Clear the other input
+            document.getElementById('incident-photo-camera').value = '';
+        });
+        
+        document.getElementById('incident-photo-camera').addEventListener('change', (e) => {
+            previewImage(e.target.files[0], 'incident-preview', null);
+            // Clear the other input
+            document.getElementById('incident-photo-gallery').value = '';
+        });
+
+        function previewImage(file, previewElId, containerId) {
+            const preview = document.getElementById(previewElId);
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                    if (containerId) {
+                        document.getElementById(containerId).classList.remove('hidden');
+                    }
+                }
+                reader.readAsDataURL(file);
+            } else {
+                preview.classList.add('hidden');
+                if (containerId) {
+                    document.getElementById(containerId).classList.add('hidden');
+                }
+            }
+        }
+
+        // Image compression function
+        function compressAndEncodeBase64(file, maxWidth = 800, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onerror = reject;
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onerror = reject;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+
+                        let { width, height } = img;
+
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = Math.round((height * maxWidth) / width);
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxWidth) {
+                                width = Math.round((width * maxWidth) / height);
+                                height = maxWidth;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(dataUrl);
+                    };
+                };
+            });
+        }
+
+        // Firestore helper functions
+        async function setSubmission(taskId, data) {
+            if (DEMO_MODE) {
+                // In demo mode, save to localStorage
+                console.log('📝 Demo: Saving submission for', taskId, data);
+                taskCompletionState[taskId] = true;
+                localStorage.setItem('demoTaskState', JSON.stringify(taskCompletionState));
+                return;
+            }
+
+            const submissionRef = doc(db, 'submissions', currentAgent.mobile);
+            const submissionData = {
+                [taskId]: data,
+                [`taskCompletionState.${taskId}`]: true,
+                lastUpdated: serverTimestamp()
+            };
+
+            try {
+                await setDoc(submissionRef, submissionData, { merge: true });
+            } catch (error) {
+                console.error('Firestore error:', error);
+                throw error;
+            }
+        }
+
+        async function addSubmission(collectionName, data) {
+            if (DEMO_MODE) {
+                // In demo mode, just log the submission
+                console.log('📝 Demo: Adding to', collectionName, data);
+                return;
+            }
+
+            const dataWithAgent = {
+                ...data,
+                agentMobile: currentAgent.mobile,
+                agentName: currentAgent.name,
+                ac: currentAgent.ac,
+                booth: currentAgent.booth,
+                timestamp: serverTimestamp()
+            };
+
+            try {
+                await addDoc(collection(db, collectionName), dataWithAgent);
+            } catch (error) {
+                console.error('Firestore error:', error);
+                throw error;
+            }
+        }
+
+        // Modal close handlers
+        document.querySelectorAll('.modal-close-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                hideModal(btn.closest('.modal-backdrop'));
+            });
+        });
+
+        // Language translations
+        const translations = {
+            en: {
+                appTitle: "Pollday Agent App",
+                loginSubtitle: "Please log in to continue",
+                mobileLabel: "Mobile Number",
+                passwordLabel: "Password",
+                loginButton: "Log In",
+                logout: "Logout",
+                ac: "AC",
+                booth: "Booth",
+                tasksTitle: "Polling Day Tasks",
+                initialSetup: "Initial Setup",
+                taskArrival: "Agent Arrival",
+                taskArrivalDesc: "Confirm your arrival at the polling booth",
+                taskMockPoll: "Mock Poll Started",
+                taskMockPollDesc: "Confirm mock poll has started",
+                voterTurnout: "Voter Turnout Tracking",
+                turnoutTitle: "Report voter count at these times",
+                turnout09: "9:00 AM Update",
+                turnout09Desc: "Available after 9:00 AM",
+                turnout12: "12:00 PM Update",
+                turnout12Desc: "Available after 12:00 PM",
+                turnout15: "3:00 PM Update",
+                turnout15Desc: "Available after 3:00 PM",
+                incidentReporting: "Incident Reporting",
+                taskIncidents: "Report Incident",
+                taskIncidentsDesc: "Report any issues or incidents",
+                finalSubmission: "Final Submission",
+                taskFinalSubmission: "Final Submission",
+                taskFinalSubmissionDesc: "Submit final polling data",
+                pending: "Pending",
+                completed: "Completed",
+                optional: "Optional",
+                confirmArrival: "Confirm Agent Arrival",
+                confirmArrivalMsg: "Have you reached the polling booth? If you pressed this by mistake, please cancel.",
+                confirmMockPoll: "Confirm Mock Poll Started",
+                confirmMockPollMsg: "Has the mock poll started? If you pressed this by mistake, please cancel.",
+                cancel: "Cancel",
+                confirm: "Confirm",
+                turnoutModalTitle: "Voter Turnout Entry",
+                votersCountLabel: "Number of voters so far",
+                turnoutConfirmMsg: "Please confirm the voter count and submission time before submitting.",
+                submit: "Submit",
+                incidentModalTitle: "Report Incident",
+                categoryLabel: "Category",
+                selectCategory: "Select a category",
+                evmIssue: "EVM Issue",
+                violence: "Violence",
+                boothCapture: "Booth Capture",
+                other: "Other",
+                descriptionLabel: "Description",
+                photoLabel: "Photo (Optional)",
+                finalSubmissionTitle: "Final Submission",
+                maleVotesLabel: "Male Votes",
+                femaleVotesLabel: "Female Votes",
+                otherVotesLabel: "Other Votes",
+                totalVotesLabel: "Total Votes (Auto-calculated)",
+                uploadPhotoLabel: "Upload Form Photo",
+                loading: "Loading..."
+            },
+            hi: {
+                appTitle: "मतदान दिवस एजेंट ऐप",
+                loginSubtitle: "जारी रखने के लिए कृपया लॉग इन करें",
+                mobileLabel: "मोबाइल नंबर",
+                passwordLabel: "पासवर्ड",
+                loginButton: "लॉग इन करें",
+                logout: "लॉगआउट",
+                ac: "विधानसभा",
+                booth: "बूथ",
+                tasksTitle: "मतदान दिवस के कार्य",
+                initialSetup: "प्रारंभिक सेटअप",
+                taskArrival: "एजेंट आगमन",
+                taskArrivalDesc: "मतदान केंद्र पर अपने आगमन की पुष्टि करें",
+                taskMockPoll: "मॉक पोल शुरू",
+                taskMockPollDesc: "मॉक पोल शुरू होने की पुष्टि करें",
+                voterTurnout: "मतदाता मतदान ट्रैकिंग",
+                turnoutTitle: "इन समय पर मतदाताओं की संख्या रिपोर्ट करें",
+                turnout09: "सुबह 9:00 बजे अपडेट",
+                turnout09Desc: "सुबह 9:00 बजे के बाद उपलब्ध",
+                turnout12: "दोपहर 12:00 बजे अपडेट",
+                turnout12Desc: "दोपहर 12:00 बजे के बाद उपलब्ध",
+                turnout15: "दोपहर 3:00 बजे अपडेट",
+                turnout15Desc: "दोपहर 3:00 बजे के बाद उपलब्ध",
+                incidentReporting: "घटना रिपोर्टिंग",
+                taskIncidents: "घटना रिपोर्ट करें",
+                taskIncidentsDesc: "किसी भी समस्या या घटना की रिपोर्ट करें",
+                finalSubmission: "अंतिम प्रस्तुति",
+                taskFinalSubmission: "अंतिम प्रस्तुति",
+                taskFinalSubmissionDesc: "अंतिम मतदान डेटा जमा करें",
+                pending: "लंबित",
+                completed: "पूर्ण",
+                optional: "वैकल्पिक",
+                confirmArrival: "एजेंट आगमन की पुष्टि करें",
+                confirmArrivalMsg: "क्या आप मतदान केंद्र पर पहुंच गए हैं? यदि आपने गलती से दबाया है, तो कृपया रद्द करें।",
+                confirmMockPoll: "मॉक पोल शुरू होने की पुष्टि करें",
+                confirmMockPollMsg: "क्या मॉक पोल शुरू हो गया है? यदि आपने गलती से दबाया है, तो कृपया रद्द करें।",
+                cancel: "रद्द करें",
+                confirm: "पुष्टि करें",
+                turnoutModalTitle: "मतदाता मतदान प्रविष्टि",
+                votersCountLabel: "अब तक मतदाताओं की संख्या",
+                turnoutConfirmMsg: "कृपया जमा करने से पहले मतदाता संख्या और जमा करने के समय की पुष्टि करें।",
+                submit: "जमा करें",
+                incidentModalTitle: "घटना रिपोर्ट करें",
+                categoryLabel: "श्रेणी",
+                selectCategory: "एक श्रेणी चुनें",
+                evmIssue: "ईवीएम समस्या",
+                violence: "हिंसा",
+                boothCapture: "बूथ कैप्चर",
+                other: "अन्य",
+                descriptionLabel: "विवरण",
+                photoLabel: "फोटो (वैकल्पिक)",
+                finalSubmissionTitle: "अंतिम प्रस्तुति",
+                maleVotesLabel: "पुरुष मत",
+                femaleVotesLabel: "महिला मत",
+                otherVotesLabel: "अन्य मत",
+                totalVotesLabel: "कुल मत (स्वतः गणना)",
+                uploadPhotoLabel: "फॉर्म फोटो अपलोड करें",
+                loading: "लोड हो रहा है..."
+            }
+        };
+
+        let currentLanguage = 'en';
+
+        // Update language function
+        function updateLanguage(lang) {
+            currentLanguage = lang;
+            localStorage.setItem('pollday-lang', lang);
+            
+            // Update all elements with data-lang-key
+            document.querySelectorAll('[data-lang-key]').forEach(element => {
+                const key = element.getAttribute('data-lang-key');
+                if (translations[lang][key]) {
+                    // Update text content or placeholder
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        if (element.placeholder) {
+                            element.placeholder = translations[lang][key];
+                        }
+                    } else {
+                        element.textContent = translations[lang][key];
+                    }
+                }
+            });
+            
+            // Update language toggle button
+            const langBtn = document.getElementById('lang-toggle-btn');
+            if (lang === 'en') {
+                langBtn.innerHTML = '<span class="text-sm">🇬🇧</span> <span class="ml-1">English</span>';
+            } else {
+                langBtn.innerHTML = '<span class="text-sm">🇮🇳</span> <span class="ml-1">हिंदी</span>';
+            }
+        }
+
+        // Language toggle handler
+        document.getElementById('lang-toggle-btn').addEventListener('click', () => {
+            const newLang = currentLanguage === 'en' ? 'hi' : 'en';
+            updateLanguage(newLang);
+        });
+
+        // Check for saved login
+        const savedAgent = localStorage.getItem('currentAgent');
+        if (savedAgent) {
+            currentAgent = JSON.parse(savedAgent);
+            loadAgentData().then(() => {
+                loginScreen.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                
+                // Start periodic check for turnout time-based enabling
+                setInterval(() => {
+                    if (currentAgent) {
+                        enableNextTask();
+                    }
+                }, 60000); // Check every minute
+            });
+        }
+        
+        // Initialize language
+        const savedLang = localStorage.getItem('pollday-lang') || 'en';
+        updateLanguage(savedLang);
+        
+        // Show demo banner if in demo mode
+        if (DEMO_MODE) {
+            document.getElementById('demo-banner').classList.remove('hidden');
+        }
+
+        // Service Worker registration (only works when served via HTTP/HTTPS)
+        if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+            navigator.serviceWorker.register('/sw.js').catch(err => {
+                console.log('Service Worker registration failed:', err);
+            });
+        }
+
+    </script>
+</body>
+</html>
